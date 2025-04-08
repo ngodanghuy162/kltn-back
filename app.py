@@ -1,17 +1,16 @@
 # app.py
-from pydantic import BaseModel
+from pydantic import BaseModel # type: ignore
 from routers import bk, deploy, dtbconfig, restore
 import asyncio
 import subprocess
 import json
-from ruamel.yaml import YAML
-from ruamel.yaml.comments import CommentedMap
-from fastapi import FastAPI, Query, Body, HTTPException, Response, Path, WebSocket,HTTPException
+from ruamel.yaml import YAML # type: ignore
+from ruamel.yaml.comments import CommentedMap # type: ignore
+from fastapi import FastAPI, Query, Body, HTTPException, Response, Path, WebSocket,HTTPException # type: ignore
 from pathlib import Path
 from io import StringIO
 from typing import Dict, Any
 import os
-from typing import Dict, Any
 #import yaml
 import subprocess
 
@@ -21,7 +20,7 @@ app = FastAPI()
 app.include_router(bk.bk_router)
 
 arr = [1,2,3,4,5]
-yaml = YAML()
+
 @app.get("/")
 async def root():
     return { "message": "Hello world" }

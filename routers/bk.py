@@ -13,19 +13,29 @@ from pathlib import Path
 import shutil
 import subprocess
 import re
+from ruamel.yaml import YAML # type: ignore
+from ruamel.yaml.comments import CommentedMap # type: ignore
 from pydantic import BaseModel # type: ignore
 from typing import List
+from pathlib import Path
+from io import StringIO
+from typing import Dict, Any
 bk_router = APIRouter()
 
+yaml = YAML()
 class InventoryUpdateRequest(BaseModel):
-    file_path: str
+    path_inventory: str
     group: str
     new_nodes: List[str]
     cron_schedule: str
     cron_command: str
+    backup_path: str
+    varfile_path: str
+    
 # api fetch dau tien:nhiem vu: lay lich backup hang ngay co chua, lay ket qua folder xem backup
 # lay backup o node nao?
 #api 2: cai dat backup tren cac node
+
 
 
 #parse conline
@@ -166,16 +176,16 @@ async def get_backup_info(
         return {"error": str(e)}
     
 #truyen file inventory, group, danh sach node.
-def update_ansible_inventory(file_path: str, group: str, new_nodes: list[str]):
+def update_ansible_inventory(path_inventory: str, group: str, new_nodes: list[str]):
     """
     Cập nhật các node trong một group cụ thể của file Ansible inventory INI.
 
     Args:
-        file_path (str): Đường dẫn file inventory
+        path_inventory (str): Đường dẫn file inventory
         group (str): Tên group cần sửa (ví dụ: "compute")
         new_nodes (list[str]): Danh sách node mới, mỗi phần tử là một dòng (str)
     """
-    with open(file_path, 'r') as f:
+    with open(path_inventory, 'r') as f:
         lines = f.readlines()
 
     result = []
@@ -212,10 +222,10 @@ def update_ansible_inventory(file_path: str, group: str, new_nodes: list[str]):
     if inside_target_group:
         result += [n + "\n" for n in new_nodes]
 
-    with open(file_path, 'w') as f:
+    with open(path_inventory, 'w') as f:
         f.writelines(result)
 
-    print(f"✅ Group [{group}] đã được cập nhật thành công.")
+    # print(f"✅ Group [{group}] đã được cập nhật thành công.")
 
 def update_crontab(cron_schedule: str, cron_command: str):
     try:
@@ -234,7 +244,7 @@ def update_crontab(cron_schedule: str, cron_command: str):
             new_cron = current_cron.replace(
                 f"backup", f"{cron_schedule} {cron_command}"
             )
-            print("Đã thay thế dòng backup cũ.")
+  
         else:
             # Nếu chưa có, thêm dòng backup mới
             new_cron = current_cron + f"\n{cron_schedule} {cron_command}\n"
@@ -243,17 +253,38 @@ def update_crontab(cron_schedule: str, cron_command: str):
         # Cập nhật lại crontab
         subprocess.run(["crontab", "-"], input=new_cron, text=True)
 
-        print("Crontab đã được cập nhật thành công.")
 
     except Exception as e:
         print(f"Đã có lỗi trong quá trình cập nhật crontab: {e}")
 
+def write_yaml(path,dict_update):
+    try:
+        print(f"✅✅✅ Ec ec ec lan 1")
+        # Đọc dữ liệu YAML hiện tại
+        with open(path, "r") as file:
+            data = yaml.load(file) or {}  # Tránh lỗi nếu file rỗng
+        
+        print(f"✅✅✅ Ec ec ec lan 2 ")
+        # Cập nhật dữ liệu
+        for key, value in dict_update.items():
+            data[key] = value
+
+        print(f"✅✅✅ Ec ec ec lan 3")
+        # Ghi lại file
+        with open(path, "w") as file:
+            yaml.dump(data, file)
+
+        return {"message": "Cập nhật YAML thành công!"}
+
+    except Exception as e:
+        return {"error": str(e)}
+    
 @bk_router.post("/bk/update")
-def update_inventory_and_cron(data: InventoryUpdateRequest):
+async def update_inventory_and_cron(data: InventoryUpdateRequest):
     try:
         # Gọi hàm cập nhật inventory
         update_ansible_inventory(
-            file_path=data.file_path,
+            path_inventory=data.path_inventory,
             group=data.group,
             new_nodes=data.new_nodes
         )
@@ -262,6 +293,12 @@ def update_inventory_and_cron(data: InventoryUpdateRequest):
             cron_schedule=data.cron_schedule,
             cron_command=data.cron_command
         )
+        dict_tmp = { "backup_path" : data.backup_path}
+        print(data.varfile_path)
+        print(dict_tmp)
+        print(f"✅ Truoc khi goi write yaml")
+        write_yaml(path=data.varfile_path, dict_update=dict_tmp)
+        print(f"✅✅ Sau khi goi ham write yaml")
         return {"status": "success", "message": "Inventory và Crontab đã được cập nhật."}
 
     except Exception as e:
