@@ -1,0 +1,2 @@
+enable_haproxy = flase
+kolla_internal_vip_address: "{{ kolla_internal_address | default('') }}"

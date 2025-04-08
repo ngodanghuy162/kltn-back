@@ -1,0 +1,22 @@
+[all:vars]
+ansible_user=hi
+ansible_become_user="root"
+ansible_become=true
+
+[control]
+1.2.3.4 ansible_password="test" ansible_become_password="hehe"
+
+[network]
+10.2.3.4 ansible_password="test" ansible_become_password="hehe"
+
+[compute]
+10.2.3.4 ansible_password="test" ansible_become_password="hehe"
+
+[monitoring]
+10.2.3.4 ansible_password="test" ansible_become_password="hehe"
+
+[backup]
+10.2.3.4 ansible_password="test" ansible_become_password="hehe"
+10.2.3.5 ansible_password="test" ansible_become_password="hehe"
+
+
