@@ -278,7 +278,7 @@ def write_yaml(path,dict_update):
 
     except Exception as e:
         return {"error": str(e)}
-    
+
 @bk_router.post("/bk/update")
 async def update_inventory_and_cron(data: InventoryUpdateRequest):
     try:

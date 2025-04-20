@@ -1,6 +1,6 @@
 # app.py
 from pydantic import BaseModel # type: ignore
-from routers import bk, deploy, dtbconfig, restore
+from routers import bk , deploy, dtbconfig, restore
 import asyncio
 import subprocess
 import json
@@ -10,6 +10,9 @@ from fastapi import FastAPI, Query, Body, HTTPException, Response, Path, WebSock
 from pathlib import Path
 from io import StringIO
 from typing import Dict, Any
+from fastapi.middleware.cors import CORSMiddleware # type: ignore
+
+
 import os
 #import yaml
 import subprocess
@@ -17,7 +20,17 @@ import subprocess
 yaml = YAML()
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],  # 👈 Cho phép frontend truy cập
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 app.include_router(bk.bk_router)
+app.include_router(restore.restore_router)
 
 arr = [1,2,3,4,5]
 

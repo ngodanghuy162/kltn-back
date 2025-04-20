@@ -17,4 +17,5 @@ dtb_config_router = APIRouter()
 
 yaml = YAML()
 
-from bk import write_yaml
+#from bk import write_yaml
+## api sua config thi chi can load default lên, và sửa thì gửi request sửa file và deploy thứ tự 3 câu lệnh à? hoặc deploy cả.
