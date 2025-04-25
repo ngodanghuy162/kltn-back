@@ -26,3 +26,49 @@ yaml = YAML()
 #3 node: sua inventory, chay deploy
 ##3 node kem haproxy: Sua inventory 2 group, sua ip vip, deploy :>
 
+PROJECT_DIR = "/Users/ngodanghuy/KLTN/test"
+VENV_ACTIVATE = "source /Users/ngodanghuy/KLTN/back/venv/bin/activate"
+class RequestBody(BaseModel):
+    type: int
+    path_inventory: str
+    new_nodes: List[str] 
+    kolla_internal_vip_address: str | None
+async def run_command_async(command: str):
+    full_cmd = f"cd {PROJECT_DIR} && {VENV_ACTIVATE} && {command}"
+    process = await asyncio.create_subprocess_shell(
+        full_cmd,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.STDOUT,
+        executable="/bin/bash"  # Rất quan trọng để hỗ trợ `source`
+    )
+    while True:
+        line = await process.stdout.readline()
+        if not line:
+            break
+        yield line.decode("utf-8")
+    await process.wait()
+    yield f"\n✅ Done: {command} (exit {process.returncode})\n"
+
+async def deploy_stream():
+    yield "\n🚀 Deploying MariaDB\n"
+    async for log_line in run_command_async("./deploy.sh"):
+        yield log_line
+    yield "✅ Finished default deploy\n"
+
+@deploy_router.post("/deploy/mariadb")
+async def deploy(vars: RequestBody):
+    if vars.type == 1:
+        update_ansible_inventory(vars.path_inventory,"mariadb",vars.new_nodes)
+    elif vars.type == 2:
+        update_ansible_inventory(vars.path_inventory,"mariadb", new_nodes=vars.new_nodes)
+    elif vars.type == 3:
+        update_ansible_inventory(vars.path_inventory,"mariadb", new_nodes=vars.new_nodes)
+        update_ansible_inventory(vars.path_inventory,"loadbalancer", new_nodes=vars.new_nodes)
+        my_dict = {
+            "enable_haproxy": "yes",
+            "enable_loadbalancer": "yes",
+            "enable_hacluster": "yes",
+            "kolla_internal_vip_address": str(vars.kolla_internal_vip_address)
+        }
+        write_yaml(path="/Users/ngodanghuy/KLTN/back/kltn-back/all2.yml",dict_update=my_dict)
+    return StreamingResponse(deploy_stream(), media_type="text/plain")
