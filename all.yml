@@ -1,5 +1,0 @@
-enable_mariabackup: no
-enable_masakari: yes
-test: yes
-enable_haproxy: bi mat
-test2: yes

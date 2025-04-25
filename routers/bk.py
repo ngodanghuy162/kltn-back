@@ -20,6 +20,7 @@ from typing import List
 from pathlib import Path
 from io import StringIO
 from typing import Dict, Any
+from general import write_yaml, read_yaml
 bk_router = APIRouter()
 
 yaml = YAML()
@@ -256,28 +257,6 @@ def update_crontab(cron_schedule: str, cron_command: str):
 
     except Exception as e:
         print(f"Đã có lỗi trong quá trình cập nhật crontab: {e}")
-
-def write_yaml(path,dict_update):
-    try:
-        print(f"✅✅✅ Ec ec ec lan 1")
-        # Đọc dữ liệu YAML hiện tại
-        with open(path, "r") as file:
-            data = yaml.load(file) or {}  # Tránh lỗi nếu file rỗng
-        
-        print(f"✅✅✅ Ec ec ec lan 2 ")
-        # Cập nhật dữ liệu
-        for key, value in dict_update.items():
-            data[key] = value
-
-        print(f"✅✅✅ Ec ec ec lan 3")
-        # Ghi lại file
-        with open(path, "w") as file:
-            yaml.dump(data, file)
-
-        return {"message": "Cập nhật YAML thành công!"}
-
-    except Exception as e:
-        return {"error": str(e)}
 
 @bk_router.post("/bk/update")
 async def update_inventory_and_cron(data: InventoryUpdateRequest):

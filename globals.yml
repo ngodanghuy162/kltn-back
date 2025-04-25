@@ -1,0 +1,21 @@
+enable_mariabackup: no
+enable_masakari: yes
+test: yes
+enable_haproxy: bi mat
+test2: yes
+expire_logs_days: 10
+wait_timeout: 28800
+#interactive_timeout: 28800
+innodb_log_file_size: '50M'
+lower_case_table_names: 1
+performance_schema: true
+max_allowed_packet: '64M'
+slow_query_log: false
+#open_files_limit: 65535
+plugin_load_add: 'N/A'
+#server_audit_logging: 'OFF'
+server_audit_events: 'N/A'
+server_audit_file_path: 'N/A'
+server_audit_file_rotate_now: 'N/A'
+server_audit_file_rotate_size: 'N/A'
+server_audit_file_rotations: 'N/A'

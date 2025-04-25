@@ -61,7 +61,7 @@ def list_backup_dates(
 
 
 #api truyen ngay vao, lay file do sua vao file bash hoac khai bao moi truong xong chay file bash
-@restore_router.post("/update_restore_file")
+@restore_router.post("/restore/update_restore_file")
 async def update_bash_file(vars: BashVariables):
     path_file = vars.path_file_resotre
 

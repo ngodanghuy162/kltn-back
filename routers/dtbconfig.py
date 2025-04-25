@@ -1,3 +1,4 @@
+import asyncio
 from configparser import ConfigParser
 from datetime import datetime
 from pathlib import Path
@@ -7,13 +8,14 @@ from ruamel.yaml.comments import CommentedMap # type: ignore
 from pathlib import Path
 from typing import List, Set
 from fastapi import FastAPI, HTTPException, Query, APIRouter, Body # type: ignore
+from fastapi.responses import StreamingResponse # type: ignore
 import os
 import subprocess
 from pydantic import BaseModel, Field, ValidationError # type: ignore
 from typing import Dict, List
 from io import StringIO
 from typing import Dict, Any
-from app import write_yaml, read_yaml
+from general import write_yaml, read_yaml
 dtb_config_router = APIRouter()
 
 yaml = YAML()
@@ -28,26 +30,44 @@ yaml = YAML()
 #api 2: doc file yamls
 #sau do sua vao va chay lenh deploy thi dung chung duoc.
 
+# class MySQLConfig(BaseModel):
+#     expire_logs_days: str
+#     wait_timeout: str
+#     interactive_timeout: str
+#     innodb_log_file_size: str
+#     lower_case_table_names: str
+#     performance_schema: str
+#     max_allowed_packet: str
+#     slow_query_log: str
+#     open_files_limit: str
+#     plugin_load_add: str
+#     server_audit_logging: str
+#     server_audit_events: str | None = None
+#     server_audit_file_path: str | None = None
+#     server_audit_file_rotate_now: str | None = None
+#     server_audit_file_rotate_size: str | None = None
+#     server_audit_file_rotations: str | None = None
+
 class MySQLConfig(BaseModel):
-    expire_logs_days: int
-    wait_timeout: int
-    interactive_timeout: int
-    innodb_log_file_size: str
-    lower_case_table_names: int
-    performance_schema: bool
-    max_allowed_packet: str
-    slow_query_log: bool
-    open_files_limit: int
-    plugin_load_add: str
-    server_audit_logging: str
-    server_audit_events: str | None = None
-    server_audit_file_path: str | None = None
-    server_audit_file_rotate_now: str | None = None
-    server_audit_file_rotate_size: int | None = None
-    server_audit_file_rotations: int | None = None
+    expire_logs_days: int | str = 'N/A'
+    wait_timeout: int | str = 'N/A'
+    interactive_timeout: int | str = 'N/A'
+    innodb_log_file_size: str = 'N/A'
+    lower_case_table_names: int | str = 'N/A'
+    performance_schema: bool | str = 'N/A'
+    max_allowed_packet: str = 'N/A'
+    slow_query_log: bool | str = 'N/A'
+    open_files_limit: int | str = 'N/A'
+    plugin_load_add: str = 'N/A'
+    server_audit_logging: str = 'N/A'
+    server_audit_events: str | None = 'N/A'
+    server_audit_file_path: str | None = 'N/A'
+    server_audit_file_rotate_now: str | None = 'N/A'
+    server_audit_file_rotate_size: int | str | None = 'N/A'
+    server_audit_file_rotations: int | str | None = 'N/A'
 
 #ham doc gia tri
-dtb_config_router("/gen_mysql_config")
+@dtb_config_router.post("/dtbconfig/gen_mysql_config")
 def create_mysql_config(cfg: MySQLConfig, path_config: str = Query(...)):
     if path_config.__contains__("global"):
         write_yaml(path_config,vars(cfg))
@@ -89,10 +109,10 @@ def create_mysql_config(cfg: MySQLConfig, path_config: str = Query(...)):
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Lỗi khi ghi file: {str(e)}")
 
-    return {"message": f"✅ Đã tạo file mới tại {cfg.path}"}
+    return {"message": f"✅ Đã tạo file mới tại {path_config}"}
 
 #ham doc gia tri
-@dtb_config_router.get("/read_mysql_config")
+@dtb_config_router.get("/dtbconfig/read_mysql_config")
 def read_and_fill_mysql_config(file_path: str) -> dict:
     if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail=f"Không tìm thấy file ở đường dẫn: {file_path}")
@@ -101,9 +121,13 @@ def read_and_fill_mysql_config(file_path: str) -> dict:
         # Bước 1: Đọc file và lấy dict
         if "global" in file_path:
             with open(file_path, "r") as f:
-                config_dict = yaml.safe_load(f) or {}
+                config_dict = read_yaml(file_path)
+                complete_config = {
+                    key: config_dict.get(key, 'N/A')
+                    for key in MySQLConfig.model_fields
+                }
         else:
-            config_dict = {}
+            complete_config = {}
             with open(file_path, "r") as f:
                 for line in f:
                     line = line.strip()
@@ -111,15 +135,56 @@ def read_and_fill_mysql_config(file_path: str) -> dict:
                         continue
                     if "=" in line:
                         key, value = line.split("=", 1)
-                        config_dict[key.strip()] = value.strip()
+                        complete_config[key.strip()] = value.strip()
 
         # Bước 2: Đưa vào Pydantic để chuẩn hóa + điền default
-        cfg = MySQLConfig(**config_dict)
+        # for key in config_dict:
+        #     config_dict[key] = str(config_dict[key])
+        cfg = MySQLConfig(**complete_config)
         return cfg.dict()
     except ValidationError as e:
         raise HTTPException(status_code=422, detail=f"Lỗi dữ liệu đầu vào: {e}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Lỗi khi xử lý file: {str(e)}")
 
-def deploy_config():
-    print("Neu chay lan luot thi the nao, chay lan 2 thi the nao")
+PROJECT_DIR = "/Users/ngodanghuy/KLTN/test"
+VENV_ACTIVATE = "source /Users/ngodanghuy/KLTN/back/venv/bin/activate"
+
+async def run_command_async(command: str):
+    full_cmd = f"cd {PROJECT_DIR} && {VENV_ACTIVATE} && {command}"
+    process = await asyncio.create_subprocess_shell(
+        full_cmd,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.STDOUT,
+        executable="/bin/bash"  # Rất quan trọng để hỗ trợ `source`
+    )
+    while True:
+        line = await process.stdout.readline()
+        if not line:
+            break
+        yield line.decode("utf-8")
+    await process.wait()
+    yield f"\n✅ Done: {command} (exit {process.returncode})\n"
+
+async def deploy_stream(targets: str = None):
+    if targets:
+        target_list = targets.split(",")
+    else:
+        target_list = []
+
+    if not target_list:
+        yield "\n🚀 Deploying cluster\n"
+        async for log_line in run_command_async("./deploy.sh"):
+            yield log_line
+        yield "✅ Finished default deploy\n"
+    else:
+        for target in target_list:
+            cmd = f"echo '{target.strip()}'"
+            yield f"\n🚀 Test Deploying: {cmd}\n"
+            async for log_line in run_command_async(cmd):
+                yield log_line
+            yield f"✅ Finished target: {target}\n"
+
+@dtb_config_router.post("/dtbconfig/deploy")
+async def deploy(targets: str = None):
+    return StreamingResponse(deploy_stream(targets), media_type="text/plain")
