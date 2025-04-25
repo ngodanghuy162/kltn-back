@@ -16,7 +16,8 @@ import subprocess
 from pydantic import BaseModel, Field, ValidationError # type: ignore
 from typing import Dict, List
 from io import StringIO
-from typing import Dict, Any
+from typing import Dict, Any, Optional
+
 from general import write_yaml, read_yaml, update_ansible_inventory
 deploy_router = APIRouter()
 
@@ -32,7 +33,7 @@ class RequestBody(BaseModel):
     type: int
     path_inventory: str
     new_nodes: List[str] 
-    kolla_internal_vip_address: str | None
+    kolla_internal_vip_address: Optional[str] = None
 async def run_command_async(command: str):
     full_cmd = f"cd {PROJECT_DIR} && {VENV_ACTIVATE} && {command}"
     process = await asyncio.create_subprocess_shell(

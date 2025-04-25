@@ -21,9 +21,9 @@ node3 ansible_host=192.168.1.03
 10.2.3.5 ansible_password="test" ansible_become_password="hehe"
 
 [mariadb]
-1.2.3.4 ansible_ssh_user="ndh" ansible_ssh_pass="1" ansible_become_pass="2"
-5.6.7.8 ansible_ssh_user="ndh" ansible_ssh_pass="1" ansible_become_pass="2"
-9.10.11.12 ansible_ssh_user="ndh" ansible_ssh_pass="1" ansible_become_pass="2"
+ ansible_ssh_user="123@gmail.com" ansible_ssh_pass="123456" ansible_become_pass=""
+ ansible_ssh_user="" ansible_ssh_pass="" ansible_become_pass=""
+ ansible_ssh_user="" ansible_ssh_pass="" ansible_become_pass=""
 [loadbalancer]
 1.2.3.4 ansible_ssh_user="ndh" ansible_ssh_pass="1" ansible_become_pass="2"
 5.6.7.8 ansible_ssh_user="ndh" ansible_ssh_pass="1" ansible_become_pass="2"
