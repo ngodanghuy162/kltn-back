@@ -44,8 +44,6 @@ def write_yaml(path,dict_update):
         for key, value in dict_update.items():
             data[key] = value
 
-        print("Dữ liệu cũ:", data)
-
         # Ghi lại file
         with open(path, "w") as file:
             yaml.dump(data, file)
