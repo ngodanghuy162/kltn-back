@@ -30,7 +30,7 @@ yaml = YAML()
 #api 2: doc file yamls
 #sau do sua vao va chay lenh deploy thi dung chung duoc.
 
-PROJECT_DIR = "/Users/ngodanghuy/KLTN/test"
+PROJECT_DIR = "/root/git/kolla-ansible"
 VENV_ACTIVATE = "source /Users/ngodanghuy/KLTN/back/venv/bin/activate"
 INVENTORY_PATH = "/root/inventory/multinode"
 
