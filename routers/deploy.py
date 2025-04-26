@@ -27,8 +27,10 @@ yaml = YAML()
 #3 node: sua inventory, chay deploy
 ##3 node kem haproxy: Sua inventory 2 group, sua ip vip, deploy :>
 
-PROJECT_DIR = "/Users/ngodanghuy/KLTN/test"
-VENV_ACTIVATE = "source /Users/ngodanghuy/KLTN/back/venv/bin/activate"
+PROJECT_DIR = "/root/git/kolla-ansible"
+VENV_ACTIVATE = "source /root/virtualenv/bin/activate"
+INVENTORY_PATH = "/root/inventory/multinode"
+
 class RequestBody(BaseModel):
     type: int
     path_inventory: str
@@ -52,7 +54,8 @@ async def run_command_async(command: str):
 
 async def deploy_stream():
     yield "\n🚀 Deploying MariaDB\n"
-    async for log_line in run_command_async("./deploy.sh"):
+    cmd_deploy = f"./tools/kolla-ansible -i {INVENTORY_PATH} deploy -t mariadb"
+    async for log_line in run_command_async(cmd_deploy):
         yield log_line
     yield "✅ Finished default deploy\n"
 
@@ -64,12 +67,14 @@ async def deploy(vars: RequestBody):
         update_ansible_inventory(vars.path_inventory,"mariadb", new_nodes=vars.new_nodes)
     elif vars.type == 3:
         update_ansible_inventory(vars.path_inventory,"mariadb", new_nodes=vars.new_nodes)
-        update_ansible_inventory(vars.path_inventory,"loadbalancer", new_nodes=vars.new_nodes)
+        update_ansible_inventory(vars.path_inventory,"loadbalancer", new_nodes=["mariadb"])
+        update_ansible_inventory(vars.path_inventory,"hacluster-remote", new_nodes=["mariadb"])
+        update_ansible_inventory(vars.path_inventory,"hacluster:children", new_nodes==["mariadb"])
         my_dict = {
             "enable_haproxy": "yes",
             "enable_loadbalancer": "yes",
             "enable_hacluster": "yes",
             "kolla_internal_vip_address": str(vars.kolla_internal_vip_address)
         }
-        write_yaml(path="/Users/ngodanghuy/KLTN/back/kltn-back/all2.yml",dict_update=my_dict)
+        write_yaml(path="/etc/kolla/globals.yml",dict_update=my_dict)
     return StreamingResponse(deploy_stream(), media_type="text/plain")

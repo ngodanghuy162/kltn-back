@@ -30,23 +30,9 @@ yaml = YAML()
 #api 2: doc file yamls
 #sau do sua vao va chay lenh deploy thi dung chung duoc.
 
-# class MySQLConfig(BaseModel):
-#     expire_logs_days: str
-#     wait_timeout: str
-#     interactive_timeout: str
-#     innodb_log_file_size: str
-#     lower_case_table_names: str
-#     performance_schema: str
-#     max_allowed_packet: str
-#     slow_query_log: str
-#     open_files_limit: str
-#     plugin_load_add: str
-#     server_audit_logging: str
-#     server_audit_events: str | None = None
-#     server_audit_file_path: str | None = None
-#     server_audit_file_rotate_now: str | None = None
-#     server_audit_file_rotate_size: str | None = None
-#     server_audit_file_rotations: str | None = None
+PROJECT_DIR = "/Users/ngodanghuy/KLTN/test"
+VENV_ACTIVATE = "source /Users/ngodanghuy/KLTN/back/venv/bin/activate"
+INVENTORY_PATH = "/root/inventory/multinode"
 
 class MySQLConfig(BaseModel):
     expire_logs_days: int | str = 'N/A'
@@ -147,9 +133,6 @@ def read_and_fill_mysql_config(file_path: str) -> dict:
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Lỗi khi xử lý file: {str(e)}")
 
-PROJECT_DIR = "/Users/ngodanghuy/KLTN/test"
-VENV_ACTIVATE = "source /Users/ngodanghuy/KLTN/back/venv/bin/activate"
-
 async def run_command_async(command: str):
     full_cmd = f"cd {PROJECT_DIR} && {VENV_ACTIVATE} && {command}"
     process = await asyncio.create_subprocess_shell(
@@ -171,17 +154,17 @@ async def deploy_stream(targets: str = None):
         target_list = targets.split(",")
     else:
         target_list = []
-
+    cmd_deploy = f"./tools/kolla-ansible -i {INVENTORY_PATH} deploy -t mariadb"
     if not target_list:
-        yield "\n🚀 Deploying cluster\n"
-        async for log_line in run_command_async("./deploy.sh"):
+        yield "\n🚀 Deploying all cluster MariaDB\n"
+        async for log_line in run_command_async(cmd_deploy):
             yield log_line
         yield "✅ Finished default deploy\n"
     else:
         for target in target_list:
-            cmd = f"echo '{target.strip()}'"
-            yield f"\n🚀 Test Deploying: {cmd}\n"
-            async for log_line in run_command_async(cmd):
+            cmd_deploy_seq = str(cmd_deploy) + " --limit target.strip()"
+            yield f"\n🚀  Deploying: {cmd_deploy_seq}\n"
+            async for log_line in run_command_async(cmd_deploy_seq):
                 yield log_line
             yield f"✅ Finished target: {target}\n"
 

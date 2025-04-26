@@ -139,8 +139,8 @@ def get_latest_backup(folder_path: str):
 #lay thong tin node backup hien tai, truyen vao inventory path va backup folder path
 @bk_router.get("/bk/info", response_model=dict)
 async def get_backup_info(
-    backup_dir: str = Query("/Users/ngodanghuy/KLTN/test", description="Đường dẫn tới thư mục backup"),
-    inventory_dir: str = Query("/Users/ngodanghuy/KLTN/back/kltn-back/inventory", description="Đường dẫn tới thư mục test")
+    backup_dir: str = Query("/home/kolla-ansible/mariadb/backup", description="Đường dẫn tới thư mục backup"),
+    inventory_dir: str = Query("root/inventory/ultinode", description="Đường dẫn tới thư mục inventory")
 ):
     try:
         # Lấy các node backup
@@ -227,34 +227,37 @@ async def get_backup_info(
 #         f.writelines(result)
 
 #     # print(f"✅ Group [{group}] đã được cập nhật thành công.")
-
 def update_crontab(cron_schedule: str, cron_command: str):
     try:
         # Lấy danh sách crontab hiện tại
         result = subprocess.run(
             ["crontab", "-l"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
         )
+        current_cron = result.stdout.splitlines()
 
-        # Lấy toàn bộ crontab hiện tại
-        current_cron = result.stdout
+        new_line = f"{cron_schedule} {cron_command}"
+        updated = False
+        new_cron_lines = []
 
-        # Kiểm tra nếu đã có dòng backup
-        backup_line = f"backup"
-        if backup_line in current_cron:
-            # Nếu đã có dòng backup, thay thế nó
-            new_cron = current_cron.replace(
-                f"backup", f"{cron_schedule} {cron_command}"
-            )
-  
-        else:
-            # Nếu chưa có, thêm dòng backup mới
-            new_cron = current_cron + f"\n{cron_schedule} {cron_command}\n"
+        for line in current_cron:
+            if "backup" in line:
+                # Thay thế toàn bộ dòng đó
+                new_cron_lines.append(new_line)
+                updated = True
+            else:
+                new_cron_lines.append(line)
+
+        if not updated:
+            # Nếu chưa có dòng backup, thêm mới
+            new_cron_lines.append(new_line)
             print("Đã thêm dòng backup mới.")
 
-        # Cập nhật lại crontab
-        subprocess.run(["crontab", "-"], input=new_cron, text=True)
+        # Ghép lại nội dung và cập nhật crontab
+        final_cron = "\n".join(new_cron_lines) + "\n"
+        subprocess.run(["crontab", "-"], input=final_cron, text=True, check=True)
 
-
+    except subprocess.CalledProcessError as e:
+        print(f"Lỗi khi chạy crontab: {e.stderr}")
     except Exception as e:
         print(f"Đã có lỗi trong quá trình cập nhật crontab: {e}")
 
