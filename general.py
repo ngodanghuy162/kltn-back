@@ -72,8 +72,8 @@ def update_ansible_inventory(path_inventory: str, group: str, new_nodes: list[st
     for i, line in enumerate(lines):
         stripped = line.strip()
 
-        #if stripped == group_header:
-        if group in stripped:
+        if stripped == group_header:
+        #if group in stripped:
             # Ghi lại header group
             result.append(line)
             inside_target_group = True
