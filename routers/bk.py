@@ -24,18 +24,6 @@ from general import write_yaml, read_yaml, update_ansible_inventory, InventoryUp
 bk_router = APIRouter()
 
 yaml = YAML()
-# class InventoryUpdateRequest(BaseModel):
-#     path_inventory: str
-#     group: str
-#     new_nodes: List[str]
-#     cron_schedule: str
-#     cron_command: str
-#     backup_path: str
-#     varfile_path: str
-    
-# api fetch dau tien:nhiem vu: lay lich backup hang ngay co chua, lay ket qua folder xem backup
-# lay backup o node nao?
-#api 2: cai dat backup tren cac node
 
 
 
@@ -111,7 +99,8 @@ def get_hosts_by_group(inventory_path: str, group_name: str) -> str:
 
 #lay ngay backup cuoi
 def get_latest_backup(folder_path: str):
-    BACKUP_PATTERN = re.compile(r"backup_(\d{2})_(\d{2})_(\d{4}).*")
+    # BACKUP_PATTERN = re.compile(r"mysqlbackup-(\d{2})-(\d{2})-(\d{4})*")  
+    BACKUP_PATTERN = re.compile(r"mysqlbackup-(\d{2})-(\d{2})-(\d{4}).*")
     folder = Path(folder_path)
     if not os.path.exists(folder_path) or not os.path.isdir(folder_path):
         return "os dang khong thay gi"
@@ -123,38 +112,43 @@ def get_latest_backup(folder_path: str):
     backups = []
 
     for file in folder.iterdir():
+        print("--File la:" + str(file.name))
         match = BACKUP_PATTERN.fullmatch(file.name)
-        print(match)
+        print("Match::" +str(match))
         if match:
             day, month, year = map(int, match.groups())
             backup_date = datetime(year, month, day)
             backups.append((backup_date))
 
     if not backups:
-        return "No file backup in folder"
-
+        return "Chua co ban backup nao"
     # Sắp xếp theo ngày giảm dần
     latest_date = max(backups)
     return f"Ngày backup cuối cùng là ngày {latest_date.strftime('%d/%m/%Y')}"
+
+
 #lay thong tin node backup hien tai, truyen vao inventory path va backup folder path
 @bk_router.get("/bk/info", response_model=dict)
 async def get_backup_info(
-    backup_dir: str = Query("/home/kolla-ansible/mariadb/backup", description="Đường dẫn tới thư mục backup"),
-    inventory_dir: str = Query("root/inventory/ultinode", description="Đường dẫn tới thư mục inventory")
+    backup_dir: str = Query("/var/lib/docker/volumes/mariadb_backup/_data/", description="Đường dẫn tới thư mục backup"),
+    inventory_dir: str = Query("/root/inventory/inventory_backup", description="Đường dẫn tới thư mục inventory backup")
 ):
     try:
         # Lấy các node backup
-        node_backup = get_hosts_by_group(inventory_dir, "backup")
-        
-        # Lấy thông tin backup gần nhất
-        last_backup = get_latest_backup(backup_dir)
-        
         # Lấy crontab của user hiện tại
         crontab = subprocess.run(["crontab", "-l"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-
+        node_backup = get_hosts_by_group(inventory_dir, "backup_node")
+        last_backup = get_latest_backup(backup_dir)
         if crontab.returncode != 0:
-            return {"error": "Không có crontab hoặc lỗi khi đọc"}
-
+            return {
+                "crontab": "N/A",
+                "node_Backup": node_backup,
+                "last_Backup": last_backup
+            }
+        
+        # Lấy thông tin backup gần nhất
+        # node_backup = get_hosts_by_group(inventory_dir, "backup_node")
+        # last_backup = get_latest_backup(backup_dir)
         lines = crontab.stdout.strip().split("\n")
         parsed = []
 
@@ -176,57 +170,6 @@ async def get_backup_info(
     except Exception as e:
         return {"error": str(e)}
     
-#truyen file inventory, group, danh sach node.
-# def update_ansible_inventory(path_inventory: str, group: str, new_nodes: list[str]):
-#     """
-#     Cập nhật các node trong một group cụ thể của file Ansible inventory INI.
-
-#     Args:
-#         path_inventory (str): Đường dẫn file inventory
-#         group (str): Tên group cần sửa (ví dụ: "compute")
-#         new_nodes (list[str]): Danh sách node mới, mỗi phần tử là một dòng (str)
-#     """
-#     with open(path_inventory, 'r') as f:
-#         lines = f.readlines()
-
-#     result = []
-#     inside_target_group = False
-#     group_header = f"[{group}]"
-    
-#     for i, line in enumerate(lines):
-#         stripped = line.strip()
-
-#         if stripped == group_header:
-#             # Ghi lại header group
-#             result.append(line)
-#             inside_target_group = True
-#             continue
-
-#         if inside_target_group:
-#             # Nếu tới group mới khác => kết thúc group cần update
-#             if stripped.startswith("[") and stripped.endswith("]"):
-#                 inside_target_group = False
-#                 # Thêm node mới trước khi group mới bắt đầu
-#                 result += [n + "\n" for n in new_nodes]
-#                 result.append(line)
-#                 continue
-#             # Bỏ qua các dòng node cũ (node cũ không bắt đầu bằng "[" và không phải comment)
-#             elif stripped and not stripped.startswith("#"):
-#                 continue
-#             else:
-#                 # Ghi lại các dòng trắng hoặc comment
-#                 continue
-
-#         result.append(line)
-
-#     # Nếu file không có group mới sau group target -> thêm node mới cuối cùng
-#     if inside_target_group:
-#         result += [n + "\n" for n in new_nodes]
-
-#     with open(path_inventory, 'w') as f:
-#         f.writelines(result)
-
-#     # print(f"✅ Group [{group}] đã được cập nhật thành công.")
 def update_crontab(cron_schedule: str, cron_command: str):
     try:
         # Lấy danh sách crontab hiện tại

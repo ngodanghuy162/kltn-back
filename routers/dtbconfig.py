@@ -31,7 +31,7 @@ yaml = YAML()
 #sau do sua vao va chay lenh deploy thi dung chung duoc.
 
 PROJECT_DIR = "/root/git/kolla-ansible"
-VENV_ACTIVATE = "source /Users/ngodanghuy/KLTN/back/venv/bin/activate"
+VENV_ACTIVATE = "source /root/virtualenv/bin/activate"
 INVENTORY_PATH = "/root/inventory/multinode"
 
 class MySQLConfig(BaseModel):
