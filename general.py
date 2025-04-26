@@ -17,14 +17,14 @@ from io import StringIO
 from typing import Dict, Any
 yaml = YAML()
 
-class InventoryUpdateRequest(BaseModel):
+class BackupRequestModel(BaseModel):
     path_inventory: str
     group: str
     new_nodes: List[str]
     cron_schedule: str
     cron_command: str
     backup_path: str
-    varfile_path: str
+    # varfile_path: str
 
 def read_yaml(path):
     """Đọc file YAML"""

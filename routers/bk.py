@@ -20,7 +20,7 @@ from typing import List
 from pathlib import Path
 from io import StringIO
 from typing import Dict, Any
-from general import write_yaml, read_yaml, update_ansible_inventory, InventoryUpdateRequest
+from general import write_yaml, read_yaml, update_ansible_inventory, BackupRequestModel
 bk_router = APIRouter()
 
 yaml = YAML()
@@ -204,8 +204,11 @@ def update_crontab(cron_schedule: str, cron_command: str):
     except Exception as e:
         print(f"Đã có lỗi trong quá trình cập nhật crontab: {e}")
 
+
+##can phat trien them ham nay, ho tro backup mysqldump va backup theo mariadb.
+##sqldump thi sua cac bien, chay bash la duoc.
 @bk_router.post("/bk/update")
-async def update_inventory_and_cron(data: InventoryUpdateRequest):
+async def update_inventory_and_cron(data: BackupRequestModel):
     try:
         # Gọi hàm cập nhật inventory
         update_ansible_inventory(
@@ -219,8 +222,6 @@ async def update_inventory_and_cron(data: InventoryUpdateRequest):
             cron_command=data.cron_command
         )
         dict_tmp = { "backup_path" : data.backup_path}
-        print(data.varfile_path)
-        print(dict_tmp)
         print(f"✅ Truoc khi goi write yaml")
         write_yaml(path=data.varfile_path, dict_update=dict_tmp)
         print(f"✅✅ Sau khi goi ham write yaml")
