@@ -162,7 +162,7 @@ async def deploy_stream(targets: str = None):
         yield "✅ Finished default deploy\n"
     else:
         for target in target_list:
-            cmd_deploy_seq = str(cmd_deploy) + " --limit target.strip()"
+            cmd_deploy_seq = str(cmd_deploy) + str(f" --limit {target.strip()}")
             yield f"\n🚀  Deploying: {cmd_deploy_seq}\n"
             async for log_line in run_command_async(cmd_deploy_seq):
                 yield log_line
