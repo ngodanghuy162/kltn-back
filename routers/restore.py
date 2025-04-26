@@ -39,7 +39,7 @@ FILENAME_PATTERN = re.compile(r"mysqlbackup_(\d{2})_(\d{2})_(\d{4})\d*")
 )
 def list_backup_dates(
     path: str = Query(
-        default="/Users/ngodanghuy/KLTN/test",  # bạn có thể đổi thành folder mặc định của bạn
+        default="/home/kolla-ansible/mariadb/backup/",  # bạn có thể đổi thành folder mặc định của bạn
         title="Đường dẫn thư mục backup",
         description="Đường dẫn chứa các file backup theo định dạng mysqlbackup_DD_MM_YYYY",
         example="/tmp/backup"
