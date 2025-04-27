@@ -20,85 +20,68 @@ from typing import List
 from pathlib import Path
 from io import StringIO
 from typing import Dict, Any
-from general import write_yaml, read_yaml, update_ansible_inventory, BackupRequestModel
+from general import write_yaml, read_yaml, update_ansible_inventory, get_hosts_by_group, update_bash_file_vars, read_bash_file_var ,RequestKollaBackup, RequestMySQLDump
 bk_router = APIRouter()
 
 yaml = YAML()
 
-
-
 #parse conline
-def parse_cron_line(line: str):
-    parts = line.strip().split()
-    if len(parts) < 6:
-        return None  # Không đủ phần để là dòng cron hợp lệ
+def parse_crontab_to_str():
+    try:
+        crontab = subprocess.run(["crontab", "-l"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        if crontab.returncode != 0:
+            return "Hiện tại chưa có lịch crontab"
+        lines = crontab.stdout.strip().split("\n")
+        line_to_parsed = ""
 
-    minute = parts[0]
-    hour = parts[1]
-    day = parts[2]
-    month = parts[3]
-    day_week = parts[4]
-    command = " ".join(parts[5:])
+        for line in lines:
+            # Bỏ qua dòng trống hoặc comment
+            if not line.strip() or line.strip().startswith("#"):
+                continue
+            if "backup" not in line.lower():
+                continue
+            
+            # Parse crontab line
+            line_to_parsed = line
+        parts = line_to_parsed.strip().split()
+        if len(parts) < 6:
+            return "Lịch crontab không hợp lệ"  # Không đủ phần để là dòng cron hợp lệ
 
-    def format_time(h, m):
-        return f"{int(h):02d}:{int(m):02d}"
+        minute = parts[0]
+        hour = parts[1]
+        day = parts[2]
+        month = parts[3]
+        day_week = parts[4]
+        command = " ".join(parts[5:])
 
-    # Lịch hàng ngày
-    if day == "*" and day_week == "*":
-        return f"Lịch backup chạy hàng ngày lúc {format_time(hour, minute)}"
+        def format_time(h, m):
+            return f"{int(h):02d}:{int(m):02d}"
 
-    # Lịch hàng tuần
-    if day == "*" and day_week != "*":
-        weekdays = {
-            "0": "Chủ nhật", "1": "Thứ hai", "2": "Thứ ba", "3": "Thứ tư",
-            "4": "Thứ năm", "5": "Thứ sáu", "6": "Thứ bảy"
-        }
-        weekday = weekdays.get(day_week, f"thứ {day_week}")
-        return f"Lịch backup chạy hàng tuần vào {weekday} lúc {format_time(hour, minute)}"
+        # Lịch hàng ngày
+        if day == "*" and day_week == "*":
+            return f"Lịch backup chạy hàng ngày lúc {format_time(hour, minute)}"
 
-    # Lịch theo ngày trong tháng
-    if day != "*" and day_week == "*":
-        return f"Lịch backup chạy moi {day[2]} ngày lúc {format_time(hour, minute)}"
+        # Lịch hàng tuần
+        if day == "*" and day_week != "*":
+            weekdays = {
+                "0": "Chủ nhật", "1": "Thứ hai", "2": "Thứ ba", "3": "Thứ tư",
+                "4": "Thứ năm", "5": "Thứ sáu", "6": "Thứ bảy"
+            }
+            weekday = weekdays.get(day_week, f"thứ {day_week}")
+            return f"Lịch backup chạy hàng tuần vào {weekday} lúc {format_time(hour, minute)}"
 
-    # Trường hợp khác (phức tạp hơn)
-    return str
+        # Lịch theo ngày trong tháng
+        if day != "*" and day_week == "*":
+            return f"Lịch backup chạy moi {day[2]} ngày lúc {format_time(hour, minute)}"
+
+        # Trường hợp khác (phức tạp hơn)
+        return line_to_parsed
+    except Exception as e:
+        return {"error": str(e)}
 
 #truyen path va group
-def get_hosts_by_group(inventory_path: str, group_name: str) -> str:
-    with open(inventory_path, "r") as f:
-        lines = f.readlines()
-
-    in_group = False
-    hosts = []
-
-    for line in lines:
-        line = line.strip()
-
-        # Bỏ qua dòng trống hoặc comment
-        if not line or line.startswith("#"):
-            continue
-
-        # Nếu là dòng group mới
-        if line.startswith("[") and line.endswith("]"):
-            current_group = line[1:-1].strip()
-            in_group = (current_group == group_name)
-            continue
-
-        # Nếu đang trong group đúng thì lấy IP (cột đầu tiên)
-        if in_group:
-            parts = line.split()
-            if parts:
-                host = parts[0]
-                hosts.append(host)
-
-    if not hosts:
-        return f"Không tìm thấy group '{group_name}' hoặc group không có host nào."
-
-    host_str = ", ".join(hosts)
-    return f"Danh sách các node {group_name} là: {host_str}"
-
 #lay ngay backup cuoi
-def get_latest_backup(folder_path: str):
+def get_latest_backup(folder_path: str) -> str:
     # BACKUP_PATTERN = re.compile(r"mysqlbackup-(\d{2})-(\d{2})-(\d{4})*")  
     BACKUP_PATTERN = re.compile(r"mysqlbackup-(\d{2})-(\d{2})-(\d{4}).*")
     folder = Path(folder_path)
@@ -121,55 +104,45 @@ def get_latest_backup(folder_path: str):
             backups.append((backup_date))
 
     if not backups:
-        return "Chua co ban backup nao"
+        return "Chưa có bản backup nào"
     # Sắp xếp theo ngày giảm dần
     latest_date = max(backups)
     return f"Ngày backup cuối cùng là ngày {latest_date.strftime('%d/%m/%Y')}"
 
-
-#lay thong tin node backup hien tai, truyen vao inventory path va backup folder path
-@bk_router.get("/bk/info", response_model=dict)
-async def get_backup_info(
+@bk_router.get("/bk/info_kolla", response_model=dict)
+async def get_backup_kolla_info(
     backup_dir: str = Query("/var/lib/docker/volumes/mariadb_backup/_data/", description="Đường dẫn tới thư mục backup"),
     inventory_dir: str = Query("/root/inventory/inventory_backup", description="Đường dẫn tới thư mục inventory backup")
 ):
     try:
         # Lấy các node backup
         # Lấy crontab của user hiện tại
-        crontab = subprocess.run(["crontab", "-l"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         node_backup = get_hosts_by_group(inventory_dir, "backup_node")
         last_backup = get_latest_backup(backup_dir)
-        if crontab.returncode != 0:
-            return {
-                "crontab": "N/A",
-                "node_Backup": node_backup,
-                "last_Backup": last_backup
-            }
-        
+        crontab = parse_crontab_to_str()
         # Lấy thông tin backup gần nhất
         # node_backup = get_hosts_by_group(inventory_dir, "backup_node")
-        # last_backup = get_latest_backup(backup_dir)
-        lines = crontab.stdout.strip().split("\n")
-        parsed = []
+        # last_backup = get_latest_backup(backup_dir
 
-        for line in lines:
-            # Bỏ qua dòng trống hoặc comment
-            if not line.strip() or line.strip().startswith("#"):
-                continue
-            if "backup" not in line.lower():
-                continue
-            
-            # Parse crontab line
-            parsed.append(parse_cron_line(line))
         
         return {
-            "crontab": parsed[0],
+            "crontab": crontab,
             "node_Backup": node_backup,
             "last_Backup": last_backup
         }
     except Exception as e:
         return {"error": str(e)}
     
+@bk_router.get("/bk/info_dump")
+async def get_backup_dump_info(backup_dir: str = Query("/var/lib/docker/volumes/mariadb_backup/_data/", description="Đường dẫn tới thư mục backup")):
+    result_bash = read_bash_file_var(backup_dir)
+    list_str_rs = []
+    list_str_rs.append(f"Hiện tại đang được backup trên node {result_bash["ip_host_dtb"]}")
+    list_str_rs.append(f"Thư mục folder backup hiện tại: {result_bash["backup_folder_path"]}")
+    list_str_rs.append(get_latest_backup(result_bash["backup_folder_path"]))
+    list_str_rs.append(parse_crontab_to_str())
+    return list_str_rs
+
 def update_crontab(cron_schedule: str, cron_command: str):
     try:
         # Lấy danh sách crontab hiện tại
@@ -204,11 +177,10 @@ def update_crontab(cron_schedule: str, cron_command: str):
     except Exception as e:
         print(f"Đã có lỗi trong quá trình cập nhật crontab: {e}")
 
-
 ##can phat trien them ham nay, ho tro backup mysqldump va backup theo mariadb.
 ##sqldump thi sua cac bien, chay bash la duoc.
-@bk_router.post("/bk/update")
-async def update_inventory_and_cron(data: BackupRequestModel):
+@bk_router.post("/bk/update_kolla")
+async def update_inventory_and_cron_for_backup(data: RequestKollaBackup):
     try:
         # Gọi hàm cập nhật inventory
         update_ansible_inventory(
@@ -229,3 +201,14 @@ async def update_inventory_and_cron(data: BackupRequestModel):
 
     except Exception as e:
         return {"status": "error", "message": str(e)}
+
+#ham update: du tinh la can doc va ghi vao file bash
+@bk_router.post("/bk/update_dump")
+async def update_backup_crontab_dump(data: RequestMySQLDump,cron_schedule: str, cron_command: str, ):
+    try:
+        update_crontab(cron_schedule=cron_schedule,cron_command=cron_command)
+        update_bash_file_vars(data)
+        return "Cập nhạt thành công"
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
