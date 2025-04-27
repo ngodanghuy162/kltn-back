@@ -28,13 +28,15 @@ class RequestKollaBackup(BaseModel):
 
 class RequestMySQLDump(BaseModel):
     script_file_path: Optional[str] = None
-    user_dtb_backup: Optional[str] = None
-    password_dtb_backup: Optional[str] = None
-    backup_folder_path: Optional[str] = None
-    ip_host_dtb: Optional[str] = None
-    days_delele: Optional[int] = None
-    ssh_host: Optional[str] = None
-    ssh_pass: Optional[str] = None
+    MyUSER: Optional[str] = None
+    MyPASS: Optional[str] = None
+    DEST: Optional[str] = None
+    MyHOST: Optional[str] = None
+    DAYS: Optional[int] = None
+    SSH_HOST: Optional[str] = None
+    SSH_PASS: Optional[str] = None
+    cron_schedule: Optional[str] = None
+    cron_command: Optional[str] = None
 
 def read_yaml(path):
     """Đọc file YAML"""
@@ -63,17 +65,19 @@ def write_yaml(path,dict_update):
     except Exception as e:
         return {"error": str(e)}
 
-def read_bash_file_var(path_bash : str) -> Dict[str, str]:
+def read_bash_file_var_for_bk_dump(path_bash : str) -> Dict[str, str]:
+    if not os.path.isfile(path_bash):
+        return None
     variables = {
-        "user_dtb_backup": "N/A",
-        "password_dtb_backup": "N/A",
-        "backup_folder_path": "N/A",
-        "ip_host_dtb": "N/A",
-        "days_delele": "N/A",
-        "ssh_host": "N/A",
-        "ssh_pass": "N/A",
+        "MyUSER": "N/A",
+        "MyPASS": "N/A",
+        "DEST": "N/A",
+        "MyHOST": "N/A",
+        "DAYS": "N/A",
+        "SSH_HOST": "N/A",
+        "SSH_PASS": "N/A",
     }
-
+    
     with open(path_bash, "r") as f:
         lines = f.readlines()
 

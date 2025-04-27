@@ -5,7 +5,7 @@
 ###api 2:
 # truyen dang key value va ghi vao cac file ini, file ini o day dua tren file mau, neu co roi thi thoi, chua co thi sao?
 ###
-from fastapi import APIRouter, Query # type: ignore
+from fastapi import APIRouter, Query , HTTPException# type: ignore
 from configparser import ConfigParser
 import os
 from datetime import datetime
@@ -20,7 +20,8 @@ from typing import List
 from pathlib import Path
 from io import StringIO
 from typing import Dict, Any
-from general import write_yaml, read_yaml, update_ansible_inventory, get_hosts_by_group, update_bash_file_vars, read_bash_file_var ,RequestKollaBackup, RequestMySQLDump
+from fastapi.responses import JSONResponse
+from general import write_yaml, read_yaml, update_ansible_inventory, get_hosts_by_group, update_bash_file_vars, read_bash_file_var_for_bk_dump ,RequestKollaBackup, RequestMySQLDump
 bk_router = APIRouter()
 
 yaml = YAML()
@@ -86,7 +87,7 @@ def get_latest_backup(folder_path: str) -> str:
     BACKUP_PATTERN = re.compile(r"mysqlbackup-(\d{2})-(\d{2})-(\d{4}).*")
     folder = Path(folder_path)
     if not os.path.exists(folder_path) or not os.path.isdir(folder_path):
-        return "os dang khong thay gi"
+        return "Không tìm thấy bản backup nào"
     if not folder.exists():
         return f"Thư mục {folder_path} không tồn tại"
     if not folder.is_dir():
@@ -114,7 +115,7 @@ async def get_backup_kolla_info(
     backup_dir: str = Query("/var/lib/docker/volumes/mariadb_backup/_data/", description="Đường dẫn tới thư mục backup"),
     inventory_dir: str = Query("/root/inventory/inventory_backup", description="Đường dẫn tới thư mục inventory backup")
 ):
-    try:
+    try:    
         # Lấy các node backup
         # Lấy crontab của user hiện tại
         node_backup = get_hosts_by_group(inventory_dir, "backup_node")
@@ -135,11 +136,17 @@ async def get_backup_kolla_info(
     
 @bk_router.get("/bk/info_dump")
 async def get_backup_dump_info(backup_dir: str = Query("/var/lib/docker/volumes/mariadb_backup/_data/", description="Đường dẫn tới thư mục backup")):
-    result_bash = read_bash_file_var(backup_dir)
+    result_bash = read_bash_file_var_for_bk_dump(backup_dir)
     list_str_rs = []
-    list_str_rs.append(f"Hiện tại đang được backup trên node {result_bash["ip_host_dtb"]}")
-    list_str_rs.append(f"Thư mục folder backup hiện tại: {result_bash["backup_folder_path"]}")
-    list_str_rs.append(get_latest_backup(result_bash["backup_folder_path"]))
+    if result_bash is None:
+        list_str_rs.append("Không tìm thấy file chạy crontab backup")
+        list_str_rs.append("Không tìm thấy file chạy crontab backup")
+        list_str_rs.append("Không tìm thấy file chạy crontab backup")
+        list_str_rs.append("Không tìm thấy file chạy crontab backup")
+        return list_str_rs
+    list_str_rs.append(f"Hiện tại đang được backup trên node {result_bash["SSH_HOST"]}")
+    list_str_rs.append(f"Thư mục folder backup hiện tại: {result_bash["DEST"]}")
+    list_str_rs.append(get_latest_backup(result_bash["DEST"]))
     list_str_rs.append(parse_crontab_to_str())
     return list_str_rs
 
@@ -154,7 +161,7 @@ def update_crontab(cron_schedule: str, cron_command: str):
         new_line = f"{cron_schedule} {cron_command}"
         updated = False
         new_cron_lines = []
-
+        print(new_line)
         for line in current_cron:
             if "backup" in line:
                 # Thay thế toàn bộ dòng đó
@@ -204,11 +211,15 @@ async def update_inventory_and_cron_for_backup(data: RequestKollaBackup):
 
 #ham update: du tinh la can doc va ghi vao file bash
 @bk_router.post("/bk/update_dump")
-async def update_backup_crontab_dump(data: RequestMySQLDump,cron_schedule: str, cron_command: str, ):
+async def update_backup_crontab_dump(data: RequestMySQLDump):
     try:
-        update_crontab(cron_schedule=cron_schedule,cron_command=cron_command)
+        if not os.path.isfile(data.script_file_path):
+            return JSONResponse(status_code=400, content={"status": "error", "message": "Không tìm thấy file bash!"})
+        
+        update_crontab(cron_schedule=data.cron_schedule, cron_command=data.cron_command)
         update_bash_file_vars(data)
-        return "Cập nhạt thành công"
+
+        return {"status": "success", "message": "Cập nhật thành công !!"}
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
