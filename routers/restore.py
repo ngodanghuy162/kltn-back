@@ -28,7 +28,7 @@ class BashVariables(BaseModel):
     CHOSEN_DATE: str
     LOG_PATH: str
 
-FILENAME_PATTERN = re.compile(r"mysqlbackup_(\d{2})_(\d{2})_(\d{4})\d*")
+FILENAME_PATTERN = re.compile(r"mysqlbackup-(\d{2})-(\d{2})-(\d{4})\d*")
 # re.compile(r"mysqlbackup_(\d{2}_\d{2}_\d{4}).*")
 
 

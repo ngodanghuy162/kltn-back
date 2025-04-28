@@ -144,8 +144,8 @@ async def get_backup_dump_info(backup_dir: str = Query("/var/lib/docker/volumes/
         list_str_rs.append("Không tìm thấy file chạy crontab backup")
         list_str_rs.append("Không tìm thấy file chạy crontab backup")
         return list_str_rs
-    list_str_rs.append(f"Hiện tại đang được backup trên node {result_bash["SSH_HOST"]}")
-    list_str_rs.append(f"Thư mục folder backup hiện tại: {result_bash["DEST"]}")
+    list_str_rs.append(f"Hiện tại đang được backup trên node {result_bash['SSH_HOST']}")
+    list_str_rs.append(f"Thư mục folder backup hiện tại: {result_bash['DEST']}")
     list_str_rs.append(get_latest_backup(result_bash["DEST"]))
     list_str_rs.append(parse_crontab_to_str())
     return list_str_rs
