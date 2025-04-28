@@ -20,8 +20,8 @@ from typing import List
 from pathlib import Path
 from io import StringIO
 from typing import Dict, Any
-from fastapi.responses import JSONResponse
-from general import write_yaml, read_yaml, update_ansible_inventory, get_hosts_by_group, update_bash_file_vars, read_bash_file_var_for_bk_dump ,RequestKollaBackup, RequestMySQLDump
+from fastapi.responses import JSONResponse # type: ignore
+from general import write_yaml, read_yaml, update_ansible_inventory, get_hosts_by_group, update_bash_file_vars, read_bash_file_var_for_bk_dump, update_bash_vars_for_mariabk ,RequestKollaBackup, RequestMySQLDump
 bk_router = APIRouter()
 
 yaml = YAML()
@@ -200,10 +200,7 @@ async def update_inventory_and_cron_for_backup(data: RequestKollaBackup):
             cron_schedule=data.cron_schedule,
             cron_command=data.cron_command
         )
-        dict_tmp = { "backup_path" : data.backup_path}
-        print(f"✅ Truoc khi goi write yaml")
-        write_yaml(path=data.varfile_path, dict_update=dict_tmp)
-        print(f"✅✅ Sau khi goi ham write yaml")
+        update_bash_vars_for_mariabk(path_script_file=data.script_file_path,inventory_path=data.path_inventory,backup_path=data.backup_dir_path, day_datele=data.day_datele)
         return {"status": "success", "message": "Inventory và Crontab đã được cập nhật."}
 
     except Exception as e:

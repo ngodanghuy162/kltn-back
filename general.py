@@ -23,8 +23,9 @@ class RequestKollaBackup(BaseModel):
     new_nodes: Optional[List[str]] = None
     cron_schedule: Optional[str] = None
     cron_command: Optional[str] = None
-    backup_path: Optional[str] = None
-    varfile_path: Optional[str] = None
+    backup_dir_path: Optional[str] = None
+    script_file_path: Optional[str] = None
+    day_datele: Optional[int] = None
 
 class RequestMySQLDump(BaseModel):
     script_file_path: Optional[str] = None
@@ -91,23 +92,6 @@ def read_bash_file_var_for_bk_dump(path_bash : str) -> Dict[str, str]:
                 variables[key] = value
     return variables
 
-# def read_bash_file_var(req: RequestMySQLDump):
-#     with open(req.script_file_path, "r") as f:
-#         lines = f.readlines()
-
-#     updated_lines = []
-#     for line in lines:
-#         replaced = False
-#         for key, value in req.dict().items():
-#             if value is not None and line.strip().startswith(f"{key}="):
-#                 updated_lines.append(f'{key}="{value}"\n')
-#                 replaced = True
-#                 break
-#         if not replaced:
-#             updated_lines.append(line)
-    
-#     with open(req.script_file_path, "w") as f:
-#         f.writelines(updated_lines)
 
 def update_bash_file_vars(req: RequestMySQLDump):
     with open(req.script_file_path, "r") as f:
@@ -124,6 +108,34 @@ def update_bash_file_vars(req: RequestMySQLDump):
                 continue  # đã update rồi, qua dòng tiếp theo
         updated_lines.append(line)
     with open(req.script_file_path, "w") as f:
+        f.writelines(updated_lines)
+
+
+def update_bash_vars_for_mariabk(path_script_file: str, inventory_path: dict,backup_path: str, day_datele:int = 
+                                 None):
+    with open(path_script_file, "r") as f:
+        lines = f.readlines()
+    updated_lines = []
+    if day_datele is None:
+        day_datele = 14
+    for line in lines:
+        stripped_line = line.strip()
+        if "=" in stripped_line and not stripped_line.startswith("#"):
+            key = stripped_line.split("=", 1)[0].strip()
+            if key == "BACKUP_PATH":
+                value = backup_path
+                updated_lines.append(f'{key}="{value}"\n')
+                continue  
+            if key == "INVENTORY_PATH":
+                value = inventory_path
+                updated_lines.append(f'{key}="{value}"\n')
+                continue  
+            if key == "DAY_DELETE":
+                value = day_datele
+                updated_lines.append(f'{key}="{value}"\n')
+                continue  
+        updated_lines.append(line)
+    with open(path_script_file, "w") as f:
         f.writelines(updated_lines)
 
 def update_ansible_inventory(path_inventory: str, group: str, new_nodes: list[str]):
