@@ -189,6 +189,10 @@ def update_crontab(cron_schedule: str, cron_command: str):
 @bk_router.post("/bk/update_kolla")
 async def update_inventory_and_cron_for_backup(data: RequestKollaBackup):
     try:
+        if not os.path.isfile(data.path_inventory):
+            return JSONResponse(status_code=400, content={"status": "error", "message": "Không tìm thấy file inventory!"})
+        if not os.path.isfile(data.script_file_path):
+            return JSONResponse(status_code=400, content={"status": "error", "message": "Không tìm thấy file script backup!"})
         # Gọi hàm cập nhật inventory
         update_ansible_inventory(
             path_inventory=data.path_inventory,
