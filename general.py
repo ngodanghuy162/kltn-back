@@ -9,6 +9,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import re
+
 from ruamel.yaml import YAML # type: ignore
 from ruamel.yaml.comments import CommentedMap # type: ignore
 from typing import List
@@ -152,6 +153,10 @@ def update_ansible_inventory(path_inventory: str, group: str, new_nodes: list[st
         group (str): Tên group cần sửa (ví dụ: "compute")
         new_nodes (list[str]): Danh sách node mới, mỗi phần tử là một dòng (str)
     """
+    if not os.path.isfile(path_inventory):
+            print(f"Không tìm thấy file inventory!")
+            return
+    print("Bat dau goi ham")
     with open(path_inventory, 'r') as f:
         lines = f.readlines()
 
@@ -189,12 +194,13 @@ def update_ansible_inventory(path_inventory: str, group: str, new_nodes: list[st
     # Nếu file không có group mới sau group target -> thêm node mới cuối cùng
     if inside_target_group:
         result += [n + "\n" for n in new_nodes]
-
+    print(result)
     with open(path_inventory, 'w') as f:
         f.writelines(result)
-
-    # print(f"✅ Group [{group}] đã được cập nhật thành công.")
+    print(f"✅ Group [{group}] đã được cập nhật thành công.")
 def get_hosts_by_group(inventory_path: str, group_name: str) -> str:
+    if not os.path.isfile(inventory_path):
+            return f"Không tìm thấy file inventory!"
     with open(inventory_path, "r") as f:
         lines = f.readlines()
 
