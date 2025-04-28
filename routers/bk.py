@@ -204,7 +204,7 @@ async def update_inventory_and_cron_for_backup(data: RequestKollaBackup):
             cron_schedule=data.cron_schedule,
             cron_command=data.cron_command
         )
-        update_bash_vars_for_mariabk(path_script_file=data.script_file_path,inventory_path=data.path_inventory,backup_path=data.backup_dir_path, day_datele=data.day_datele)
+        update_bash_vars_for_mariabk(path_script_file=data.script_file_path,inventory_path=data.path_inventory,backup_path=data.backup_dir_path, day_datele=data.day_datele, list_node_bash=data.list_node_bash)
         return {"status": "success", "message": "Inventory và Crontab đã được cập nhật."}
 
     except Exception as e:

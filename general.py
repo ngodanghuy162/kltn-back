@@ -21,6 +21,7 @@ class RequestKollaBackup(BaseModel):
     path_inventory: Optional[str] = None
     group: Optional[str] = None
     new_nodes: Optional[List[str]] = None
+    list_node_bash: Optional[str] = None
     cron_schedule: Optional[str] = None
     cron_command: Optional[str] = None
     backup_dir_path: Optional[str] = None
@@ -112,7 +113,7 @@ def update_bash_file_vars(req: RequestMySQLDump):
 
 
 def update_bash_vars_for_mariabk(path_script_file: str, inventory_path: dict,backup_path: str, day_datele:int = 
-                                 None):
+                                 None, list_node_bash: str = None):
     with open(path_script_file, "r") as f:
         lines = f.readlines()
     updated_lines = []
@@ -132,6 +133,10 @@ def update_bash_vars_for_mariabk(path_script_file: str, inventory_path: dict,bac
                 continue  
             if key == "DAY_DELETE":
                 value = day_datele
+                updated_lines.append(f'{key}="{value}"\n')
+                continue  
+            if key == "LIST_IP":
+                value = list_node_bash
                 updated_lines.append(f'{key}="{value}"\n')
                 continue  
         updated_lines.append(line)
