@@ -33,6 +33,7 @@ app.include_router(bk.bk_router)
 app.include_router(restore.restore_router)
 app.include_router(dtbconfig.dtb_config_router)
 app.include_router(deploy.deploy_router)
+app.include_router(autohl.autohl_router)
 arr = [1,2,3,4,5]
 
 @app.get("/")

@@ -27,7 +27,7 @@ bk_router = APIRouter()
 yaml = YAML()
 
 #parse conline
-def parse_crontab_to_str():
+def parse_crontab_to_str(keyword: str = "backup"):
     try:
         crontab = subprocess.run(["crontab", "-l"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         if crontab.returncode != 0:
@@ -39,7 +39,7 @@ def parse_crontab_to_str():
             # Bỏ qua dòng trống hoặc comment
             if not line.strip() or line.strip().startswith("#"):
                 continue
-            if "backup" not in line.lower():
+            if keyword not in line.lower():
                 continue
             
             # Parse crontab line
@@ -60,7 +60,7 @@ def parse_crontab_to_str():
 
         # Lịch hàng ngày
         if day == "*" and day_week == "*":
-            return f"Lịch backup chạy hàng ngày lúc {format_time(hour, minute)}"
+            return f"Lịch {keyword} chạy hàng ngày lúc {format_time(hour, minute)}"
 
         # Lịch hàng tuần
         if day == "*" and day_week != "*":
@@ -69,11 +69,11 @@ def parse_crontab_to_str():
                 "4": "Thứ năm", "5": "Thứ sáu", "6": "Thứ bảy"
             }
             weekday = weekdays.get(day_week, f"thứ {day_week}")
-            return f"Lịch backup chạy hàng tuần vào {weekday} lúc {format_time(hour, minute)}"
+            return f"Lịch {keyword} chạy hàng tuần vào {weekday} lúc {format_time(hour, minute)}"
 
         # Lịch theo ngày trong tháng
         if day != "*" and day_week == "*":
-            return f"Lịch backup chạy moi {day[2]} ngày lúc {format_time(hour, minute)}"
+            return f"Lịch {keyword} chạy moi {day[2]} ngày lúc {format_time(hour, minute)}"
 
         # Trường hợp khác (phức tạp hơn)
         return line_to_parsed
@@ -120,7 +120,7 @@ async def get_backup_kolla_info(
         # Lấy crontab của user hiện tại
         node_backup = get_hosts_by_group(inventory_dir, "backup_node")
         last_backup = get_latest_backup(backup_dir)
-        crontab = parse_crontab_to_str()
+        crontab = parse_crontab_to_str(keyword="mariabackup")
         # Lấy thông tin backup gần nhất
         # node_backup = get_hosts_by_group(inventory_dir, "backup_node")
         # last_backup = get_latest_backup(backup_dir
@@ -147,10 +147,10 @@ async def get_backup_dump_info(backup_dir: str = Query("/var/lib/docker/volumes/
     list_str_rs.append(f"Hiện tại đang được backup trên node {result_bash['SSH_HOST']}")
     list_str_rs.append(f"Thư mục folder backup hiện tại: {result_bash['DEST']}")
     list_str_rs.append(get_latest_backup(result_bash["DEST"]))
-    list_str_rs.append(parse_crontab_to_str())
+    list_str_rs.append(parse_crontab_to_str(keyword="dump"))
     return list_str_rs
 
-def update_crontab(cron_schedule: str, cron_command: str):
+def update_crontab(cron_schedule: str, cron_command: str, keyword: str = "backup", is_enable: bool = True):
     try:
         # Lấy danh sách crontab hiện tại
         result = subprocess.run(
@@ -159,11 +159,14 @@ def update_crontab(cron_schedule: str, cron_command: str):
         current_cron = result.stdout.splitlines()
 
         new_line = f"{cron_schedule} {cron_command}"
+        if not is_enable:
+            new_line = f"# {new_line}"
+        
         updated = False
         new_cron_lines = []
         print(new_line)
         for line in current_cron:
-            if "backup" in line:
+            if keyword in line:
                 # Thay thế toàn bộ dòng đó
                 new_cron_lines.append(new_line)
                 updated = True
@@ -173,7 +176,7 @@ def update_crontab(cron_schedule: str, cron_command: str):
         if not updated:
             # Nếu chưa có dòng backup, thêm mới
             new_cron_lines.append(new_line)
-            print("Đã thêm dòng backup mới.")
+            print(f"Đã thêm dòng {keyword} mới.")
 
         # Ghép lại nội dung và cập nhật crontab
         final_cron = "\n".join(new_cron_lines) + "\n"
@@ -202,7 +205,9 @@ async def update_inventory_and_cron_for_backup(data: RequestKollaBackup):
         # Gọi hàm cập nhật crontab
         update_crontab(
             cron_schedule=data.cron_schedule,
-            cron_command=data.cron_command
+            cron_command=data.cron_command,
+            keyword="mariabackup",
+            is_enable=data.is_enable
         )
         update_bash_vars_for_mariabk(path_script_file=data.script_file_path,inventory_path=data.path_inventory,backup_path=data.backup_dir_path, day_datele=data.day_datele, list_node_bash=data.list_node_bash)
         return {"status": "success", "message": "Inventory và Crontab đã được cập nhật."}
@@ -217,7 +222,12 @@ async def update_backup_crontab_dump(data: RequestMySQLDump):
         if not os.path.isfile(data.script_file_path):
             return JSONResponse(status_code=400, content={"status": "error", "message": "Không tìm thấy file bash!"})
         
-        update_crontab(cron_schedule=data.cron_schedule, cron_command=data.cron_command)
+        update_crontab(
+            cron_schedule=data.cron_schedule, 
+            cron_command=data.cron_command,
+            keyword="dump",
+            is_enable=data.is_enable
+        )    
         update_bash_file_vars(data)
 
         return {"status": "success", "message": "Cập nhật thành công !!"}

@@ -11,9 +11,10 @@ from fastapi import FastAPI, HTTPException, Query, APIRouter, Body # type: ignor
 import os
 import subprocess
 from pydantic import BaseModel, Field # type: ignore
-from typing import Dict, List
+from typing import Dict, List, Generator
 from io import StringIO
 from typing import Dict, Any
+from fastapi.responses import StreamingResponse
 restore_router = APIRouter()
 
 yaml = YAML()
@@ -65,6 +66,14 @@ def list_backup_dates(
 async def update_bash_file(vars: BashVariables):
     path_file = vars.path_file_resotre
 
+    # Kiểm tra file có tồn tại không
+    if not os.path.exists(path_file):
+        raise HTTPException(status_code=404, detail="Không tìm thấy file bash")
+
+    # Kiểm tra file có rỗng không
+    if os.path.getsize(path_file) == 0:
+        raise HTTPException(status_code=400, detail="File bash rỗng")
+
     # Đọc và cập nhật file
     with open(path_file, "r") as f:
         lines = f.readlines()
@@ -83,19 +92,38 @@ async def update_bash_file(vars: BashVariables):
     with open(path_file, "w") as f:
         f.writelines(updated_lines)
 
-    # ✅ Chạy file bash vừa truyền vào
-    try:
-        result = subprocess.run(
-            ["bash", path_file],  
-            capture_output=True,
-            text=True,
-            check=True
-        )
-        output = result.stdout
-    except subprocess.CalledProcessError as e:
-        raise HTTPException(status_code=500, detail=f"Lỗi khi chạy script: {e.stderr}")
+    def generate_output() -> Generator[str, None, None]:
+        try:
+            # Sử dụng Popen để chạy process và đọc output theo realtime
+            process = subprocess.Popen(
+                ["bash", path_file],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                bufsize=1,
+                universal_newlines=True
+            )
 
-    return {
-        "message": "✅ File updated và script đã được thực thi!",
-        "output": output,
-    }
+            # Đọc stdout
+            for line in process.stdout:
+                yield f"data: {line}\n\n"
+
+            # Đọc stderr
+            for line in process.stderr:
+                yield f"data: Error: {line}\n\n"
+
+            # Đợi process hoàn thành
+            process.wait()
+            
+            if process.returncode != 0:
+                yield f"data: Process exited with code {process.returncode}\n\n"
+            else:
+                yield "data: Process completed successfully\n\n"
+
+        except Exception as e:
+            yield f"data: Error: {str(e)}\n\n"
+
+    return StreamingResponse(
+        generate_output(),
+        media_type="text/event-stream"
+    )

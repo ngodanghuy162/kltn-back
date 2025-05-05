@@ -1,4 +1,3 @@
-
 from ruamel.yaml import YAML # type: ignore
 from ruamel.yaml.comments import CommentedMap # type: ignore
 from pydantic import BaseModel # type: ignore
@@ -28,7 +27,8 @@ class RequestKollaBackup(BaseModel):
     backup_dir_path: Optional[str] = None
     script_file_path: Optional[str] = None
     day_datele: Optional[int] = None
-
+    is_enable: Optional[bool] = True
+    
 class RequestMySQLDump(BaseModel):
     script_file_path: Optional[str] = None
     MyUSER: Optional[str] = None
@@ -40,6 +40,12 @@ class RequestMySQLDump(BaseModel):
     SSH_PASS: Optional[str] = None
     cron_schedule: Optional[str] = None
     cron_command: Optional[str] = None
+    is_enable: Optional[bool] = True
+
+class RequestCrontab(BaseModel):
+    is_enable: bool = True
+    cron_command: str
+    cron_schedule: str
 
 def read_yaml(path):
     """Đọc file YAML"""
@@ -79,6 +85,7 @@ def read_bash_file_var_for_bk_dump(path_bash : str) -> Dict[str, str]:
         "DAYS": "N/A",
         "SSH_HOST": "N/A",
         "SSH_PASS": "N/A",
+        "SSH_USER": "N/A",
     }
     
     with open(path_bash, "r") as f:
