@@ -1,6 +1,6 @@
 # app.py
 from pydantic import BaseModel # type: ignore
-from routers import bk , deploy, dtbconfig, restore
+from routers import bk , deploy, dtbconfig, restore, autohl
 import asyncio
 import subprocess
 import json

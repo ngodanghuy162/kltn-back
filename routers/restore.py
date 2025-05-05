@@ -36,7 +36,7 @@ FILENAME_PATTERN = re.compile(r"mysqlbackup-(\d{2})-(\d{2})-(\d{4})\d*")
 @restore_router.get(
     "/listbackup",
     summary="Lấy danh sách ngày backup từ tên file",
-    response_description="Trả về danh sách các ngày theo định dạng DD-MM-YYYY từ tên file backup",
+    response_description="Trả về danh sách các file backup với thông tin chi tiết",
 )
 def list_backup_dates(
     path: str = Query(
@@ -48,7 +48,11 @@ def list_backup_dates(
 ):
     folder = Path(path)
     if not folder.exists() or not folder.is_dir():
-        return {"error": "Invalid folder path"}
+        return {
+            "status": "error",
+            "message": "Không tìm thấy thư mục backup",
+            "dates": []
+        }
 
     backup_dates = []
 
@@ -58,8 +62,11 @@ def list_backup_dates(
             if match:
                 day, month, year = match.groups()
                 backup_dates.append(f"{day}-{month}-{year}")
-    return {"dates": backup_dates}
-
+    return {
+        "status": "success",
+        "message": "Không tìm thấy bản backup nào trong thư mục này" if not backup_dates else None,
+        "dates": backup_dates
+    }
 
 #api truyen ngay vao, lay file do sua vao file bash hoac khai bao moi truong xong chay file bash
 @restore_router.post("/restore/update_restore_file")

@@ -1,10 +1,3 @@
-#####api 1: neu dung path default khong co, yeu 
-# cau nguoi dung nhap path da cai dat va thuc hien api 1 lay thong tin
-#####
-
-###api 2:
-# truyen dang key value va ghi vao cac file ini, file ini o day dua tren file mau, neu co roi thi thoi, chua co thi sao?
-###
 from fastapi import APIRouter, Query , HTTPException# type: ignore
 from configparser import ConfigParser
 import os
@@ -41,11 +34,12 @@ def parse_crontab_to_str(keyword: str = "backup"):
                 continue
             if keyword not in line.lower():
                 continue
-            
             # Parse crontab line
             line_to_parsed = line
         parts = line_to_parsed.strip().split()
         if len(parts) < 6:
+            if keyword == "auto":
+                return f"Chưa được cấu hình tự động chạy..."
             return "Lịch crontab không hợp lệ"  # Không đủ phần để là dòng cron hợp lệ
 
         minute = parts[0]
@@ -58,6 +52,12 @@ def parse_crontab_to_str(keyword: str = "backup"):
         def format_time(h, m):
             return f"{int(h):02d}:{int(m):02d}"
 
+        # Xử lý trường hợp chạy mỗi X phút
+        if minute.startswith("*/"):
+            minutes = minute[2:]
+            if keyword == "auto":
+                return minutes
+            return f"Lịch {keyword} chạy mỗi {minutes} phút"
         # Lịch hàng ngày
         if day == "*" and day_week == "*":
             return f"Lịch {keyword} chạy hàng ngày lúc {format_time(hour, minute)}"
@@ -164,10 +164,14 @@ def update_crontab(cron_schedule: str, cron_command: str, keyword: str = "backup
         
         updated = False
         new_cron_lines = []
-        print(new_line)
+        
         for line in current_cron:
             if keyword in line:
+                if not is_enable:
+                    new_line = f"# {line}"
                 # Thay thế toàn bộ dòng đó
+                else:
+                    new_line = f"{cron_schedule} {cron_command}"
                 new_cron_lines.append(new_line)
                 updated = True
             else:
@@ -181,11 +185,13 @@ def update_crontab(cron_schedule: str, cron_command: str, keyword: str = "backup
         # Ghép lại nội dung và cập nhật crontab
         final_cron = "\n".join(new_cron_lines) + "\n"
         subprocess.run(["crontab", "-"], input=final_cron, text=True, check=True)
-
+        return True
     except subprocess.CalledProcessError as e:
         print(f"Lỗi khi chạy crontab: {e.stderr}")
+        return False
     except Exception as e:
         print(f"Đã có lỗi trong quá trình cập nhật crontab: {e}")
+        return False
 
 ##can phat trien them ham nay, ho tro backup mysqldump va backup theo mariadb.
 ##sqldump thi sua cac bien, chay bash la duoc.
@@ -233,4 +239,28 @@ async def update_backup_crontab_dump(data: RequestMySQLDump):
         return {"status": "success", "message": "Cập nhật thành công !!"}
     except Exception as e:
         return {"status": "error", "message": str(e)}
+
+def parse_crontab_to_get_path(keyword: str = "backup") -> str:
+    try:
+        crontab = subprocess.run(["crontab", "-l"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        if crontab.returncode != 0:
+            return "Không tìm thấy đường dẫn"
+        
+        lines = crontab.stdout.strip().split("\n")
+        for line in lines:
+            # Bỏ qua dòng trống hoặc comment
+            if not line.strip() or line.strip().startswith("#"):
+                continue
+            if keyword not in line.lower():
+                continue
+                
+            # Tìm đường dẫn sau từ khóa bash
+            parts = line.strip().split()
+            for i, part in enumerate(parts):
+                if part == "bash" and i + 1 < len(parts):
+                    return parts[i + 1]
+                    
+        return "Không tìm thấy đường dẫn"
+    except Exception as e:
+        return f"Lỗi khi parse crontab: {str(e)}"
 

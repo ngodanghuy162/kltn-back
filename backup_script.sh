@@ -13,4 +13,4 @@ DAYS_DATELE=''
 ls
 pwd
 cd /Users/ngodanghuy/KLTN/test
-mkdir $CHOSEN_DATE
+echo "test"
