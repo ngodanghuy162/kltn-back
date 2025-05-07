@@ -84,6 +84,7 @@ def parse_crontab_to_str(keyword: str = "backup"):
 #lay ngay backup cuoi
 def get_latest_backup(folder_path: str) -> str:
     # BACKUP_PATTERN = re.compile(r"mysqlbackup-(\d{2})-(\d{2})-(\d{4})*")  
+
     BACKUP_PATTERN = re.compile(r"mysqlbackup-(\d{2})-(\d{2})-(\d{4}).*")
     folder = Path(folder_path)
     if not os.path.exists(folder_path) or not os.path.isdir(folder_path):
@@ -109,6 +110,35 @@ def get_latest_backup(folder_path: str) -> str:
     # Sắp xếp theo ngày giảm dần
     latest_date = max(backups)
     return f"Ngày backup cuối cùng là ngày {latest_date.strftime('%d/%m/%Y')}"
+
+def get_latest_backup_dump(folder_path: str) -> str:
+    # Pattern to match DD-MM-YYYY format in filename
+    BACKUP_PATTERN = re.compile(r'.*(\d{2})-(\d{2})-(\d{4}).*')
+    folder = Path(folder_path)
+    if not os.path.exists(folder_path) or not os.path.isdir(folder_path):
+        return "Không tìm thấy bản backup nào"
+    if not folder.exists():
+        return f"Thư mục {folder_path} không tồn tại"
+    if not folder.is_dir():
+        return f"{folder_path} không phải là một thư mục"
+
+    backups = []
+
+    for file in folder.iterdir():
+        print("--File la:" + str(file.name))
+        match = BACKUP_PATTERN.search(file.name)
+        print("Match::" + str(match))
+        if match:
+            day, month, year = map(int, match.groups())
+            backup_date = datetime(year, month, day)
+            backups.append((backup_date, file.name))
+
+    if not backups:
+        return "Chưa có bản backup nào"
+    
+    # Sắp xếp theo ngày giảm dần và lấy tên file của backup mới nhất
+    latest_backup = max(backups, key=lambda x: x[0])
+    return f"File backup mới nhất: {latest_backup[1]}"
 
 @bk_router.get("/bk/info_kolla", response_model=dict)
 async def get_backup_kolla_info(
@@ -144,9 +174,9 @@ async def get_backup_dump_info(backup_dir: str = Query("/var/lib/docker/volumes/
         list_str_rs.append("Không tìm thấy file chạy crontab backup")
         list_str_rs.append("Không tìm thấy file chạy crontab backup")
         return list_str_rs
-    list_str_rs.append(f"Hiện tại đang được backup trên node {result_bash['SSH_HOST']}")
+    list_str_rs.append(f"Hiện tại đang được sao lưu trên node {result_bash['SSH_HOST']}")
     list_str_rs.append(f"Thư mục folder backup hiện tại: {result_bash['DEST']}")
-    list_str_rs.append(get_latest_backup(result_bash["DEST"]))
+    list_str_rs.append(get_latest_backup_dump(result_bash["DEST"]))
     list_str_rs.append(parse_crontab_to_str(keyword="dump"))
     return list_str_rs
 
