@@ -52,17 +52,31 @@ async def run_command_async(command: str):
     await process.wait()
     yield f"\n✅ Done: {command} (exit {process.returncode})\n"
 
-async def deploy_stream():
+async def deploy_stream(type: int):
+    if type == 1:
+        cmd_destroy= f"ansible -i {INVENTORY_PATH} -m shell -a 'docker rm -f haproxy,keepalived' all"
+        run_command_async(cmd_destroy)
     yield "\n🚀 Deploying MariaDB\n"
-    cmd_deploy = f"./tools/kolla-ansible -i {INVENTORY_PATH} deploy -t mariadb"
+    cmd_deploy = f"./tools/kolla-ansible -i {INVENTORY_PATH} reconfigure -t haproxy,keepalived,loadbalancer"
     async for log_line in run_command_async(cmd_deploy):
         yield log_line
-    yield "✅ Finished default deploy\n"
+    yield "✅ Finished Haproxy reconfigure \n"
+
+    yield "\n🚀 Deploying second command\n"
+    cmd_deploy2 = f"./tools/kolla-ansible -i {INVENTORY_PATH} deploy -t mariadb"  # Thay đổi lệnh thứ hai ở đây
+    async for log_line in run_command_async(cmd_deploy2):
+        yield log_line
+    yield "✅ Finished Mariadb deploy\n"
 
 @deploy_router.post("/deploy/mariadb")
 async def deploy(vars: RequestBody):
     if vars.type == 1:
         update_ansible_inventory(vars.path_inventory,"mariadb",vars.new_nodes)
+        my_dict = {
+            "enable_haproxy": "no",
+            "enable_loadbalancer": "no",
+        }
+        write_yaml(path="/etc/kolla/globals.yml",dict_update=my_dict)
     elif vars.type == 2:
         update_ansible_inventory(vars.path_inventory,"mariadb", new_nodes=vars.new_nodes)
     elif vars.type == 3:
@@ -72,8 +86,7 @@ async def deploy(vars: RequestBody):
         my_dict = {
             "enable_haproxy": "yes",
             "enable_loadbalancer": "yes",
-            "enable_hacluster": "yes",
             "kolla_internal_vip_address": str(vars.kolla_internal_vip_address)
         }
         write_yaml(path="/etc/kolla/globals.yml",dict_update=my_dict)
-    return StreamingResponse(deploy_stream(), media_type="text/plain")
+    return StreamingResponse(deploy_stream(vars.type), media_type="text/plain")
