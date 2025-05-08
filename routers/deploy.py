@@ -81,8 +81,8 @@ async def deploy(vars: RequestBody):
         update_ansible_inventory(vars.path_inventory,"mariadb", new_nodes=vars.new_nodes)
     elif vars.type == 3:
         update_ansible_inventory(vars.path_inventory,"mariadb", new_nodes=vars.new_nodes)
-        update_ansible_inventory(vars.path_inventory,"loadbalancer:children", new_nodes=["mariadb"])
-        update_ansible_inventory(vars.path_inventory,"hacluster:children", new_nodes=["mariadb"])
+        # update_ansible_inventory(vars.path_inventory,"loadbalancer:children", new_nodes=["mariadb"])
+        # update_ansible_inventory(vars.path_inventory,"hacluster:children", new_nodes=["mariadb"])
         my_dict = {
             "enable_haproxy": "yes",
             "enable_loadbalancer": "yes",
