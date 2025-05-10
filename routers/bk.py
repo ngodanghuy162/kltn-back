@@ -15,6 +15,8 @@ from io import StringIO
 from typing import Dict, Any
 from fastapi.responses import JSONResponse # type: ignore
 from general import write_yaml, read_yaml, update_ansible_inventory, get_hosts_by_group, update_bash_file_vars, read_bash_file_var_for_bk_dump, update_bash_vars_for_mariabk ,RequestKollaBackup, RequestMySQLDump
+import asyncio
+
 bk_router = APIRouter()
 
 yaml = YAML()
@@ -312,8 +314,9 @@ async def run_command_async(path_script: str):
     yield f"\n✅ Kiểm tra thư mục sao lưu và log để biết thêm chi tiết\n"
 
 @bk_router.post("/bk/bk_now")
-async def bk_now(path: str):
-    await run_command_async(data.script_file_path)
-    return {"status": "success", "message": "Đã được thực hiện sao lưu."}
-
+async def bk_now(path_script: str = Query(..., description="Đường dẫn tới script backup")):
+    output = []
+    async for line in run_command_async(path_script):
+        output.append(line)
+    return {"status": "success", "message": "Đã được thực hiện sao lưu.", "output": "".join(output)}
 
