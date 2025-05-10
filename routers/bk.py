@@ -294,3 +294,26 @@ def parse_crontab_to_get_path(keyword: str = "backup") -> str:
     except Exception as e:
         return f"Lỗi khi parse crontab: {str(e)}"
 
+async def run_command_async(path_script: str):
+    command = f"bash {path_script}"
+    process = await asyncio.create_subprocess_shell(
+        command,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.STDOUT,
+        executable="/bin/bash"  # Rất quan trọng để hỗ trợ `source`
+    )
+    while True:
+        line = await process.stdout.readline()
+        if not line:
+            break
+        yield line.decode("utf-8")
+    await process.wait()
+    yield f"\n✅ Done: {command} (exit {process.returncode})\n"
+    yield f"\n✅ Kiểm tra thư mục sao lưu và log để biết thêm chi tiết\n"
+
+@bk_router.post("/bk/bk_now")
+async def bk_now(path: str):
+    await run_command_async(data.script_file_path)
+    return {"status": "success", "message": "Đã được thực hiện sao lưu."}
+
+

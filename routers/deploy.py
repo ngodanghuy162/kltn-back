@@ -54,8 +54,11 @@ async def run_command_async(command: str):
 
 async def deploy_stream(type: int):
     if type == 1:
-        cmd_destroy= f"ansible -i {INVENTORY_PATH} -m shell -a 'docker rm -f haproxy,keepalived' all"
+        cmd_destroy= f"ansible -i {INVENTORY_PATH} -m shell -a 'docker rm -f haproxy keepalived' all"
+        cmd_rm_grastate = f"ansible -i {INVENTORY_PATH} -m shell -a 'rm /var/lib/docker/volumes/mariadb/_data/grastate.dat' all"
         run_command_async(cmd_destroy)
+        run_command_async(cmd_rm_grastate)
+        yield "\n🚀 Destroy Haproxy and Keepalived\n"
     yield "\n🚀 Deploying MariaDB\n"
     cmd_deploy = f"./tools/kolla-ansible -i {INVENTORY_PATH} reconfigure -t haproxy,keepalived,loadbalancer"
     async for log_line in run_command_async(cmd_deploy):
@@ -67,6 +70,7 @@ async def deploy_stream(type: int):
     async for log_line in run_command_async(cmd_deploy2):
         yield log_line
     yield "✅ Finished Mariadb deploy\n"
+
 
 @deploy_router.post("/deploy/mariadb")
 async def deploy(vars: RequestBody):
@@ -90,3 +94,6 @@ async def deploy(vars: RequestBody):
         }
         write_yaml(path="/etc/kolla/globals.yml",dict_update=my_dict)
     return StreamingResponse(deploy_stream(vars.type), media_type="text/plain")
+
+
+    
