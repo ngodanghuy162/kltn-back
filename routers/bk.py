@@ -268,7 +268,7 @@ async def update_backup_crontab_dump(data: RequestMySQLDump):
             is_enable=data.is_enable
         )
         if data.is_enable:
-        update_bash_file_vars(data)
+            update_bash_file_vars(data)
 
         return {"status": "success", "message": "Cập nhật thành công !!"}
     except Exception as e:
