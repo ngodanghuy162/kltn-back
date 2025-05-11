@@ -36,6 +36,7 @@ class RequestBody(BaseModel):
     path_inventory: str
     new_nodes: List[str] 
     kolla_internal_vip_address: Optional[str] = None
+    exclude_ip: Optional[str] = None
 async def run_command_async(command: str):
     full_cmd = f"cd {PROJECT_DIR} && {VENV_ACTIVATE} && {command}"
     process = await asyncio.create_subprocess_shell(
@@ -52,11 +53,23 @@ async def run_command_async(command: str):
     await process.wait()
     yield f"\n✅ Done: {command} (exit {process.returncode})\n"
 
-async def deploy_stream(type: int):
+async def deploy_stream(type: int, exclude_ip: Optional[str] = None):
     if type == 1:
-        cmd_destroy= f"ansible -i {INVENTORY_PATH} -m shell -a 'docker rm -f haproxy keepalived' all"
+        # Determine which IPs to limit to
+        if exclude_ip:
+            # If exclude_ip is provided, limit to the other two IPs
+            limit_ips = "192.168.1.100,192.168.1.102" if exclude_ip == "192.168.1.101" else \
+                       "192.168.1.101,192.168.1.102" if exclude_ip == "192.168.1.100" else \
+                       "192.168.1.100,192.168.1.101"
+        else:
+            # If no exclude_ip, use all nodes
+            limit_ips = "all"
+
+        cmd_destroy = f"ansible -i {INVENTORY_PATH} -m shell -a 'docker rm -f haproxy keepalived' all"
+        cmd_remove_mariadb_volume = f"ansible -i {INVENTORY_PATH} -m shell -a 'docker volume rm mariadb; docker remove -f mariadb; docker rm -f mariadb_clustercheck' {limit_ips}"
         cmd_rm_grastate = f"ansible -i {INVENTORY_PATH} -m shell -a 'rm /var/lib/docker/volumes/mariadb/_data/grastate.dat' all"
         run_command_async(cmd_destroy)
+        run_command_async(cmd_remove_mariadb_volume)
         run_command_async(cmd_rm_grastate)
         yield "\n🚀 Destroy Haproxy and Keepalived\n"
     yield "\n🚀 Deploying MariaDB\n"
@@ -93,7 +106,7 @@ async def deploy(vars: RequestBody):
             "kolla_internal_vip_address": str(vars.kolla_internal_vip_address)
         }
         write_yaml(path="/etc/kolla/globals.yml",dict_update=my_dict)
-    return StreamingResponse(deploy_stream(vars.type), media_type="text/plain")
+    return StreamingResponse(deploy_stream(vars.type, vars.exclude_ip), media_type="text/plain")
 
 
     
