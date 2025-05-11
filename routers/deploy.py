@@ -58,9 +58,9 @@ async def deploy_stream(type: int, exclude_ip: Optional[str] = None):
         # Determine which IPs to limit to
         if exclude_ip:
             # If exclude_ip is provided, limit to the other two IPs
-            limit_ips = "192.168.1.100,192.168.1.102" if exclude_ip == "192.168.1.101" else \
-                       "192.168.1.101,192.168.1.102" if exclude_ip == "192.168.1.100" else \
-                       "192.168.1.100,192.168.1.101"
+            limit_ips = "--limit 192.168.1.100,192.168.1.102" if exclude_ip == "192.168.1.101" else \
+                       "--limit 192.168.1.101,192.168.1.102" if exclude_ip == "192.168.1.100" else \
+                       "--limit 192.168.1.100,192.168.1.101"
         else:
             # If no exclude_ip, use all nodes
             limit_ips = "all"
@@ -71,7 +71,7 @@ async def deploy_stream(type: int, exclude_ip: Optional[str] = None):
         run_command_async(cmd_destroy)
         run_command_async(cmd_remove_mariadb_volume)
         run_command_async(cmd_rm_grastate)
-        yield "\n🚀 Destroy Haproxy and Keepalived\n"
+    
     yield "\n🚀 Deploying MariaDB\n"
     cmd_deploy = f"./tools/kolla-ansible -i {INVENTORY_PATH} reconfigure -t haproxy,keepalived,loadbalancer"
     async for log_line in run_command_async(cmd_deploy):
@@ -106,7 +106,12 @@ async def deploy(vars: RequestBody):
             "kolla_internal_vip_address": str(vars.kolla_internal_vip_address)
         }
         write_yaml(path="/etc/kolla/globals.yml",dict_update=my_dict)
-    return StreamingResponse(deploy_stream(vars.type, vars.exclude_ip), media_type="text/plain")
+    
+    exclude_ip = None
+    if vars.type == 1 and vars.new_nodes:
+        exclude_ip = vars.new_nodes[0].split(" ")[0]
+    
+    return StreamingResponse(deploy_stream(vars.type, exclude_ip=exclude_ip), media_type="text/plain")
 
 
     
