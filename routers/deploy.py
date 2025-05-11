@@ -67,18 +67,23 @@ async def deploy_stream(type: int, exclude_ip: Optional[str] = None):
 
         cmd_destroy = f"ansible -i {INVENTORY_PATH} -m shell -a 'docker rm -f haproxy keepalived' all"
         cmd_remove_mariadb_volume = f"ansible -i {INVENTORY_PATH} -m shell -a 'docker volume rm mariadb; docker remove -f mariadb; docker rm -f mariadb_clustercheck' {limit_ips}"
-        cmd_rm_grastate = f"ansible -i {INVENTORY_PATH} -m shell -a 'rm /var/lib/docker/volumes/mariadb/_data/grastate.dat' all"
+       # cmd_rm_grastate = f"ansible -i {INVENTORY_PATH} -m shell -a 'rm /var/lib/docker/volumes/mariadb/_data/grastate.dat' all"
         run_command_async(cmd_destroy)
         run_command_async(cmd_remove_mariadb_volume)
-        run_command_async(cmd_rm_grastate)
-    
-    yield "\n🚀 Deploying MariaDB\n"
+        # yield "\n🚀 Remove grastate.dat MariaDB\n"
+        # async for log_line in run_command_async(cmd_rm_grastate):
+        #     yield log_line
+    cmd_rm_grastate = f"ansible -i {INVENTORY_PATH} -m shell -a 'rm /var/lib/docker/volumes/mariadb/_data/grastate.dat' all"
+    yield "\n🚀 Remove grastate.dat MariaDB\n"
+    async for log_line in run_command_async(cmd_rm_grastate):
+        yield log_line
+        
+    yield "\n🚀 Deploying haproxy, keepalived, loadbalancer\n"
     cmd_deploy = f"./tools/kolla-ansible -i {INVENTORY_PATH} reconfigure -t haproxy,keepalived,loadbalancer"
     async for log_line in run_command_async(cmd_deploy):
         yield log_line
     yield "✅ Finished Haproxy reconfigure \n"
-
-    yield "\n🚀 Deploying second command\n"
+    yield "\n🚀 Deploying MariaDB command\n"
     cmd_deploy2 = f"./tools/kolla-ansible -i {INVENTORY_PATH} deploy -t mariadb"  # Thay đổi lệnh thứ hai ở đây
     async for log_line in run_command_async(cmd_deploy2):
         yield log_line

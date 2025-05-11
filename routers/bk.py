@@ -247,7 +247,8 @@ async def update_inventory_and_cron_for_backup(data: RequestKollaBackup):
             keyword="mariabackup",
             is_enable=data.is_enable
         )
-        update_bash_vars_for_mariabk(path_script_file=data.script_file_path,inventory_path=data.path_inventory,backup_path=data.backup_dir_path, day_datele=data.day_datele, list_node_bash=data.list_node_bash)
+        if data.is_enable:
+            update_bash_vars_for_mariabk(path_script_file=data.script_file_path,inventory_path=data.path_inventory,backup_path=data.backup_dir_path, day_datele=data.day_datele, list_node_bash=data.list_node_bash)
         return {"status": "success", "message": "Inventory và Crontab đã được cập nhật."}
 
     except Exception as e:
@@ -265,7 +266,8 @@ async def update_backup_crontab_dump(data: RequestMySQLDump):
             cron_command=data.cron_command,
             keyword="dump",
             is_enable=data.is_enable
-        )    
+        )
+        if data.is_enable:
         update_bash_file_vars(data)
 
         return {"status": "success", "message": "Cập nhật thành công !!"}
